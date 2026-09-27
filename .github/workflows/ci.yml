@@ -1,4 +1,7 @@
-name: CI/CD Pipeline
+name: CI
+
+# Integração contínua do FinanTrack (PI4): testes, lint e build.
+# Não há deploy em nuvem: o ambiente oficial é local (Docker Desktop + Docker Compose).
 
 on:
   push:
@@ -6,16 +9,10 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  REGION: us-central1
-  REGISTRY: ${{ secrets.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/pi3
-
 jobs:
-  # ─── BACKEND ───────────────────────────────────────────────────────────
   backend-tests:
-    name: Backend — Tests
+    name: Backend — Testes
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -25,17 +22,19 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
 
-      - name: Install dependencies
+      - name: Instalar dependências (PyTorch CPU)
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+          pip install -r requirements.txt
 
-      - name: Run pytest
+      - name: Pytest
         working-directory: backend
         env:
           DATABASE_URL: sqlite:///./test.db
         run: pytest tests/ -v --tb=short --junit-xml=test-results.xml
 
-      - name: Upload test results
+      - name: Publicar resultados
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -45,22 +44,19 @@ jobs:
   backend-lint:
     name: Backend — Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - name: Lint
+      - name: Ruff
         working-directory: backend
-        run: ruff check app/ --select E,F,W
+        run: ruff check app/ tests/
 
-  # ─── FRONTEND ──────────────────────────────────────────────────────────
   frontend-build:
-    name: Frontend — Build & Type Check
+    name: Frontend — Type check e build
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -70,7 +66,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Instalar dependências
         working-directory: frontend
         run: npm ci
 
@@ -78,102 +74,12 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Upload dist
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/dist/
-
-  # ─── DEPLOY GCP — somente na branch main ───────────────────────────────
-  deploy-backend:
-    name: Deploy Backend → Cloud Run
+  docker-compose:
+    name: Docker Compose — Validação e build
     runs-on: ubuntu-latest
-    needs: [backend-tests, backend-lint]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-      - name: Build & push backend image
-        working-directory: backend
-        run: |
-          IMAGE="${{ env.REGISTRY }}/backend:${{ github.sha }}"
-          docker build -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy pi3-backend \
-            --image "$IMAGE" \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --service-account pi3-cloudrun-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --add-cloudsql-instances ${{ secrets.CLOUD_SQL_CONNECTION_NAME }} \
-            --set-secrets DATABASE_URL=pi3-database-url:latest \
-            --set-env-vars ENVIRONMENT=production \
-            --port 8080 \
-            --min-instances 0 \
-            --max-instances 3 \
-            --memory 512Mi
-
-  deploy-frontend:
-    name: Deploy Frontend → Cloud Run
-    runs-on: ubuntu-latest
-    needs: [frontend-build, deploy-backend]
-    if: github.ref == 'refs/heads/main'
-    environment: production
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
-
-      - name: Get backend URL
-        run: |
-          BACKEND_URL=$(gcloud run services describe pi3-backend \
-            --region ${{ env.REGION }} \
-            --format "value(status.url)")
-          echo "BACKEND_URL=$BACKEND_URL" >> $GITHUB_ENV
-
-      - name: Build & push frontend image
-        working-directory: frontend
-        run: |
-          IMAGE="${{ env.REGISTRY }}/frontend:${{ github.sha }}"
-          docker build --build-arg VITE_API_URL="${{ env.BACKEND_URL }}" -t "$IMAGE" .
-          docker push "$IMAGE"
-          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy pi3-frontend \
-            --image "$IMAGE" \
-            --platform managed \
-            --region ${{ env.REGION }} \
-            --allow-unauthenticated \
-            --port 80 \
-            --min-instances 0 \
-            --max-instances 2 \
-            --memory 256Mi
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+      - name: Build das imagens
+        run: docker compose build

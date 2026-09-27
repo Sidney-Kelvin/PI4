@@ -1,5 +1,0 @@
-project_id     = "meu-projeto-gcp"
-region         = "us-central1"
-db_password    = "senha-segura-aqui"
-backend_image  = "us-central1-docker.pkg.dev/meu-projeto-gcp/pi3/backend:latest"
-frontend_image = "us-central1-docker.pkg.dev/meu-projeto-gcp/pi3/frontend:latest"
