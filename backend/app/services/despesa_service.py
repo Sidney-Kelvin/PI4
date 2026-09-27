@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.repositories.despesa_repository import DespesaRepository
@@ -29,5 +30,5 @@ class DespesaService:
         despesa = self.obter_despesa(despesa_id)
         self.repo.deletar(despesa)
 
-    def total_despesas(self) -> float:
+    def total_despesas(self) -> Decimal:
         return self.repo.total_despesas()

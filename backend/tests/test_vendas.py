@@ -38,3 +38,16 @@ def test_listar_vendas(client):
     response = client.get("/vendas/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_produto_com_venda_nao_pode_ser_excluido(client, produto_id):
+    client.post("/vendas/", json={"produto_id": produto_id, "quantidade": 1})
+    response = client.delete(f"/produtos/{produto_id}")
+    assert response.status_code == 409
+
+
+def test_valores_monetarios_sem_erro_de_ponto_flutuante(client):
+    produto = client.post("/produtos/", json={"nome": "Item", "preco": 0.10, "quantidade": 10}).json()
+    venda = client.post("/vendas/", json={"produto_id": produto["id"], "quantidade": 3}).json()
+    # Com float puro, 3 * 0.1 = 0.30000000000000004
+    assert venda["total"] == 0.30

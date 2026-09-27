@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.repositories.venda_repository import VendaRepository
@@ -41,7 +42,7 @@ class VendaService:
             observacao=dados.observacao,
         )
 
-    def faturamento_total(self) -> float:
+    def faturamento_total(self) -> Decimal:
         return self.venda_repo.faturamento_total()
 
     def total_vendas(self) -> int:

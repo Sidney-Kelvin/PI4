@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from decimal import Decimal
 from typing import Optional
 from app.models.venda import Venda
-from app.schemas.venda import VendaCreate
 
 
 class VendaRepository:
@@ -27,8 +27,15 @@ class VendaRepository:
             .first()
         )
 
-    def criar(self, produto_id: int, quantidade: int, preco_unitario: float, cliente: Optional[str], observacao: Optional[str]) -> Venda:
-        total = quantidade * preco_unitario
+    def criar(
+        self,
+        produto_id: int,
+        quantidade: int,
+        preco_unitario: Decimal,
+        cliente: Optional[str],
+        observacao: Optional[str],
+    ) -> Venda:
+        total = quantidade * Decimal(preco_unitario)
         venda = Venda(
             produto_id=produto_id,
             quantidade=quantidade,
@@ -42,9 +49,12 @@ class VendaRepository:
         self.db.refresh(venda)
         return venda
 
-    def faturamento_total(self) -> float:
+    def faturamento_total(self) -> Decimal:
         resultado = self.db.query(func.sum(Venda.total)).scalar()
-        return resultado or 0.0
+        return Decimal(resultado or 0)
+
+    def existe_para_produto(self, produto_id: int) -> bool:
+        return self.db.query(Venda.id).filter(Venda.produto_id == produto_id).first() is not None
 
     def total_vendas(self) -> int:
         return self.db.query(func.count(Venda.id)).scalar()

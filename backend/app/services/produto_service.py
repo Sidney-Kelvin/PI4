@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.repositories.produto_repository import ProdutoRepository
+from app.repositories.venda_repository import VendaRepository
 from app.schemas.produto import ProdutoCreate, ProdutoUpdate
 from app.models.produto import Produto
 
@@ -8,6 +9,7 @@ from app.models.produto import Produto
 class ProdutoService:
     def __init__(self, db: Session):
         self.repo = ProdutoRepository(db)
+        self.venda_repo = VendaRepository(db)
 
     def listar_produtos(self, skip: int = 0, limit: int = 100):
         return self.repo.listar(skip, limit)
@@ -27,6 +29,11 @@ class ProdutoService:
 
     def deletar_produto(self, produto_id: int) -> None:
         produto = self.obter_produto(produto_id)
+        if self.venda_repo.existe_para_produto(produto_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Produto possui vendas registradas e não pode ser excluído.",
+            )
         self.repo.deletar(produto)
 
     def contar_produtos(self) -> int:

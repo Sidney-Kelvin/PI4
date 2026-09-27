@@ -30,9 +30,9 @@ class ProdutoRepository:
         return produto
 
     def decrementar_estoque(self, produto: Produto, quantidade: int) -> Produto:
+        # Sem commit: a baixa de estoque é confirmada junto com o registro da venda
         produto.quantidade -= quantidade
-        self.db.commit()
-        self.db.refresh(produto)
+        self.db.flush()
         return produto
 
     def deletar(self, produto: Produto) -> None:

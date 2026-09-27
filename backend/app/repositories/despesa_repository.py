@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from decimal import Decimal
 from typing import Optional
 from app.models.despesa import Despesa
 from app.schemas.despesa import DespesaCreate, DespesaUpdate
@@ -39,6 +40,6 @@ class DespesaRepository:
         self.db.delete(despesa)
         self.db.commit()
 
-    def total_despesas(self) -> float:
+    def total_despesas(self) -> Decimal:
         resultado = self.db.query(func.sum(Despesa.valor)).scalar()
-        return resultado or 0.0
+        return Decimal(resultado or 0)
