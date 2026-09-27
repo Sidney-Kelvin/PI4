@@ -5,11 +5,14 @@ __pycache__/
 .env
 *.db
 .pytest_cache/
+.ruff_cache/
+.coverage
 .venv/
 venv/
 dist/
 build/
 *.egg-info/
+test-results.xml
 
 # Node
 node_modules/
@@ -18,24 +21,25 @@ frontend/build/
 frontend/.env
 frontend/.env.local
 
-# Docker
+# Docker / logs
 *.tar
+volumes/
+logs/
+*.log
 
 # IDE
 .vscode/
 .idea/
 *.swp
+.DS_Store
+Thumbs.db
 
-# GCP — chaves de serviço nunca no repositório
-infra/gcp-sa-key.json
-infra/*.json
-infra/terraform.tfvars
-infra/.terraform/
-infra/*.tfstate
-infra/*.tfstate.backup
+# Dataset Rossmann: não redistribuir (sujeito às regras da competição no Kaggle)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
 
-# JSON genérico (exceto configs do projeto)
-!package.json
-!package-lock.json
-!tsconfig.json
-!tsconfig.*.json
+# Artefatos do modelo treinado (gerados localmente por python -m app.ml.train)
+models/sales_lstm/*
+!models/sales_lstm/.gitkeep
