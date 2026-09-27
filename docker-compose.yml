@@ -1,25 +1,51 @@
-version: "3.9"
+# FinanTrack (PI4) — ambiente local oficial: Windows + Docker Desktop + Docker Compose.
+# Subir tudo:  docker compose up -d --build
+# Variáveis opcionais: copie .env.example para .env e ajuste (valores padrão abaixo são só para demonstração local).
+name: finantrack
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: pi3user
-      POSTGRES_PASSWORD: pi3pass
-      POSTGRES_DB: pi3db
+      POSTGRES_USER: ${POSTGRES_USER:-finantrack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finantrack}
+      POSTGRES_DB: ${POSTGRES_DB:-finantrack}
     ports:
-      - "5432:5432"
+      # Exposto apenas na máquina local (para pgAdmin/DBeaver, se desejar)
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
 
   backend:
     build: ./backend
-    ports:
-      - "8080:8080"
     environment:
-      DATABASE_URL: postgresql://pi3user:pi3pass@db:5432/pi3db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-finantrack}:${POSTGRES_PASSWORD:-finantrack}@db:5432/${POSTGRES_DB:-finantrack}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-troque-esta-chave}
+      DATA_DIR: /data
+      MODEL_DIR: /models/sales_lstm
+    volumes:
+      - ./data:/data          # CSVs do Rossmann (data/raw) e dados processados
+      - ./models:/models      # modelo LSTM treinado
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy   # migrations só rodam com o PostgreSQL pronto
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
 
   frontend:
     build:
@@ -27,9 +53,11 @@ services:
       args:
         VITE_API_URL: /api
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:
