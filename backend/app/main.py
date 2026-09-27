@@ -14,6 +14,7 @@ from app.controllers import (
     despesa_controller,
     dashboard_controller,
     external_controller,
+    varejo_controller,
 )
 
 # A estrutura do banco é responsabilidade exclusiva do Alembic (alembic upgrade head),
@@ -63,6 +64,7 @@ app.include_router(produto_controller.router)
 app.include_router(venda_controller.router)
 app.include_router(despesa_controller.router)
 app.include_router(external_controller.router)
+app.include_router(varejo_controller.router)
 
 
 @app.get("/", tags=["Health"])
