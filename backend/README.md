@@ -1,204 +1,90 @@
-# Backend — Pi3 Gestão Financeira
+# Backend — FinanTrack (PI4)
 
-API REST desenvolvida com **FastAPI (Python 3.12)** para gestão financeira e controle de estoque de microempresas.
-
----
+API REST em **FastAPI (Python 3.12)** com PostgreSQL, Alembic e um módulo de Deep Learning (PyTorch/LSTM)
+para previsão de vendas. Visão geral, dataset e resultados: veja o [README principal](../README.md).
 
 ## Tecnologias
 
 | Tecnologia | Versão | Função |
 |---|---|---|
-| FastAPI | 0.111 | Framework web REST |
+| FastAPI | 0.111 | Framework web REST + Swagger |
 | SQLAlchemy | 2.0 | ORM |
-| Alembic | 1.13 | Migrations de banco |
-| Pydantic | 2.7 | Validação de dados |
-| PostgreSQL | 15+ | Banco de dados (produção) |
-| SQLite | — | Banco de dados (testes) |
-| Uvicorn | 0.29 | Servidor ASGI |
-| httpx | 0.27 | Cliente HTTP assíncrono (APIs externas) |
+| Alembic | 1.13 | Migrations (única fonte da estrutura do banco) |
+| Pydantic | 2.7 | Validação e serialização |
+| pandas / NumPy | 2.2 / 2.1 | Preparação dos dados |
+| PyTorch (CPU) | 2.5.1 | Modelo LSTM |
+| PostgreSQL | 16 | Banco de dados (SQLite apenas nos testes) |
 
----
-
-## Estrutura
+## Arquitetura
 
 ```
-backend/
-├── app/
-│   ├── main.py                  # Ponto de entrada — registra rotas e CORS
-│   ├── controllers/             # Rotas HTTP (uma por domínio)
-│   │   ├── dashboard_controller.py
-│   │   ├── produto_controller.py
-│   │   ├── venda_controller.py
-│   │   ├── despesa_controller.py
-│   │   └── external_controller.py   # ViaCEP + BrasilAPI
-│   ├── services/                # Regras de negócio
-│   │   ├── produto_service.py
-│   │   ├── venda_service.py
-│   │   └── despesa_service.py
-│   ├── repositories/            # Acesso ao banco de dados
-│   │   ├── produto_repository.py
-│   │   ├── venda_repository.py
-│   │   └── despesa_repository.py
-│   ├── models/                  # Modelos SQLAlchemy
-│   │   ├── produto.py
-│   │   ├── venda.py
-│   │   └── despesa.py
-│   ├── schemas/                 # Schemas Pydantic (request/response)
-│   │   ├── produto.py
-│   │   ├── venda.py
-│   │   ├── despesa.py
-│   │   └── dashboard.py
-│   └── core/
-│       ├── config.py            # Configurações via variáveis de ambiente
-│       └── database.py          # Sessão e engine SQLAlchemy
-├── alembic/                     # Migrations de banco
-│   ├── env.py
-│   └── versions/
-│       └── 0001_initial_schema.py
-├── tests/
-│   ├── conftest.py              # Fixtures (banco SQLite em memória)
-│   ├── test_produtos.py
-│   ├── test_vendas.py
-│   ├── test_despesas.py
-│   └── test_dashboard.py
-├── Dockerfile
-├── alembic.ini
-└── requirements.txt
+Controller (rotas HTTP) → Service (regras) → Repository (consultas) → Model (SQLAlchemy) → PostgreSQL
+                             └→ app/ml/predictor (inferência com o modelo salvo em MODEL_DIR)
 ```
 
----
-
-## Como executar localmente
-
-### Pré-requisitos
-- Python 3.12+
-- PostgreSQL rodando (ou use SQLite via `.env`)
-
-### Instalação
-
-```bash
-# 1. Criar e ativar ambiente virtual
-python -m venv .venv
-source .venv/bin/activate        # Linux/macOS
-.venv\Scripts\activate           # Windows
-
-# 2. Instalar dependências
-pip install -r requirements.txt
-
-# 3. Configurar variáveis de ambiente
-cp .env.example .env
-# Edite .env com sua DATABASE_URL
 ```
-
-### Configuração (`.env`)
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/pi3db
-SECRET_KEY=sua-chave-secreta
-ENVIRONMENT=development
+app/
+├── main.py            registra rotas, CORS e tratamento de banco indisponível (503)
+├── core/              config.py (variáveis de ambiente) · database.py
+├── controllers/       dashboard, produto, venda, despesa, external, varejo, previsao
+├── services/          regras de negócio (inclui varejo_service e previsao_service)
+├── repositories/      acesso ao banco (varejo_repository: agregações por dia/mês/ano, loja, promo, feriado)
+├── models/            produto, venda, despesa, varejo (lojas, vendas_historicas, planejamento_lojas, previsoes_vendas)
+├── schemas/           Pydantic
+└── ml/                data_preparation · ingest · features · model · train · metrics · artifacts · predictor
+alembic/versions/      0001 (PI3) · 0002 (Float → NUMERIC) · 0003 (varejo e previsões)
+tests/                 pytest
 ```
-
-### Executar migrations
-
-```bash
-alembic upgrade head
-```
-
-### Iniciar servidor
-
-```bash
-uvicorn app.main:app --reload
-```
-
-API disponível em `http://localhost:8080`
-Documentação Swagger em `http://localhost:8080/docs`
-
----
-
-## Endpoints
-
-### Dashboard
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/dashboard/` | Faturamento, despesas, saldo, total de vendas e produtos |
-
-### Produtos
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/produtos/` | Listar todos |
-| GET | `/produtos/{id}` | Buscar por ID |
-| POST | `/produtos/` | Criar produto |
-| PUT | `/produtos/{id}` | Atualizar produto |
-| DELETE | `/produtos/{id}` | Deletar produto |
-
-### Vendas
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/vendas/` | Listar todas |
-| GET | `/vendas/{id}` | Buscar por ID |
-| POST | `/vendas/` | Registrar venda |
-
-### Despesas
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/despesas/` | Listar todas |
-| GET | `/despesas/{id}` | Buscar por ID |
-| POST | `/despesas/` | Criar despesa |
-| PUT | `/despesas/{id}` | Atualizar despesa |
-| DELETE | `/despesas/{id}` | Deletar despesa |
-
-### Integrações Externas
-| Método | Rota | Descrição |
-|---|---|---|
-| GET | `/external/cep/{cep}` | Consulta endereço via ViaCEP |
-| GET | `/external/cnpj/{cnpj}` | Consulta empresa via BrasilAPI |
-
----
-
-## Regras de negócio
-
-- **Venda com estoque insuficiente** → retorna HTTP 422 com mensagem detalhada
-- **Ao registrar uma venda** → estoque do produto é decrementado automaticamente
-- **Faturamento e saldo** → calculados em tempo real no endpoint `/dashboard/`
-- **Despesas** → impactam o saldo (faturamento − despesas)
-
----
-
-## Testes
-
-```bash
-pytest tests/ -v
-```
-
-Os testes utilizam **SQLite em memória** — não é necessário PostgreSQL para executar.
-
-```
-tests/test_produtos.py    — CRUD completo de produtos
-tests/test_vendas.py      — registro, redução de estoque, erro de saldo insuficiente
-tests/test_despesas.py    — CRUD completo de despesas
-tests/test_dashboard.py   — métricas do dashboard
-```
-
----
-
-## Docker
-
-```bash
-# Build
-docker build -t pi3-backend .
-
-# Executar
-docker run -p 8080:8080 -e DATABASE_URL=postgresql://... pi3-backend
-```
-
-O `CMD` do Dockerfile executa `alembic upgrade head` antes de iniciar o servidor.
-
----
 
 ## Variáveis de ambiente
 
-| Variável | Obrigatória | Padrão | Descrição |
-|---|---|---|---|
-| `DATABASE_URL` | Sim | — | URL de conexão PostgreSQL |
-| `SECRET_KEY` | Não | `dev-secret-key` | Chave para uso futuro (JWT) |
-| `ENVIRONMENT` | Não | `development` | Ambiente atual |
+| Variável | Padrão (fora do Docker) | No Docker Compose |
+|---|---|---|
+| `DATABASE_URL` | `postgresql://finantrack:finantrack@localhost:5432/finantrack` | aponta para o serviço `db` |
+| `DATA_DIR` | `../data` | `/data` (bind de `./data`) |
+| `MODEL_DIR` | `../models/sales_lstm` | `/models/sales_lstm` (bind de `./models`) |
+| `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | — |
+| `SECRET_KEY`, `ENVIRONMENT` | valores de desenvolvimento | via `.env` da raiz |
+
+## Comandos (dentro do container)
+
+```bash
+docker compose exec backend alembic upgrade head               # migrations (também automáticas no start)
+docker compose exec backend python -m app.ml.ingest --verificar # confere data/raw
+docker compose exec backend python -m app.ml.ingest            # importa o Rossmann (--substituir para refazer)
+docker compose exec backend python -m app.ml.train             # treina e avalia a LSTM
+docker compose exec backend pytest tests/ -q                   # testes
+```
+
+## Executar sem Docker (opcional)
+
+Requer Python 3.12 e um PostgreSQL acessível.
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate                 # Windows  (Linux/macOS: source .venv/bin/activate)
+pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+pip install -r requirements.txt
+copy .env.example .env                 # ajuste DATABASE_URL
+alembic upgrade head
+uvicorn app.main:app --reload --port 8080
+```
+
+## Endpoints
+
+Documentação completa e interativa em **http://localhost:8080/docs**. Resumo:
+
+* PI3 (mantidos): `/dashboard/`, `/produtos/`, `/vendas/`, `/despesas/`, `/external/cep/{cep}`, `/external/cnpj/{cnpj}`
+* Varejo: `/varejo/resumo`, `/varejo/vendas/serie`, `/varejo/vendas/por-{tipo-loja|sortimento|promocao|feriado|dia-semana}`,
+  `/varejo/lojas`, `/varejo/lojas/{id}`, `/varejo/lojas/ranking`
+* Previsões: `/previsoes/status`, `/previsoes/proximo-mes`, `/previsoes/historico-vs-previsao`, `/previsoes/avaliacao`
+* Saúde: `/`, `/health/db`
+
+## Mudanças em relação ao PI3
+
+* `Base.metadata.create_all()` removido: a estrutura vem apenas do Alembic.
+* Valores monetários em `NUMERIC(12,2)` (migration 0002, sem perda de dados); a API continua devolvendo números JSON.
+* Registro de venda e baixa de estoque na **mesma transação** (antes eram dois commits).
+* Excluir produto com vendas retorna **409** com mensagem clara (antes: erro 500 de chave estrangeira).
+* Falha de conexão com o banco retorna **503** com mensagem em português.
