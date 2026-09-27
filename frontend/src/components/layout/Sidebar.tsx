@@ -23,8 +23,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 min-h-screen bg-gray-900 text-white flex flex-col" aria-label="Menu principal">
       <div className="px-6 py-6 border-b border-gray-700">
-        <h1 className="text-xl font-bold tracking-tight">Pi3 Gestão</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Controle financeiro</p>
+        <h1 className="text-xl font-bold tracking-tight">FinanTrack</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Acompanhamento financeiro de varejo</p>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1" aria-label="Navegação">
@@ -48,7 +48,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="px-6 py-4 border-t border-gray-700">
-        <p className="text-xs text-gray-500">v1.0.0</p>
+        <p className="text-xs text-gray-500">PI4 · v2.0.0</p>
       </div>
     </aside>
   );

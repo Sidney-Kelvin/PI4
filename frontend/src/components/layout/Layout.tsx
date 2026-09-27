@@ -16,7 +16,7 @@ const pageTitles: Record<string, string> = {
 export default function Layout() {
   const { colorFilter } = useAccessibility();
   const location = useLocation();
-  const title = pageTitles[location.pathname] ?? "Pi3 Gestão";
+  const title = pageTitles[location.pathname] ?? "FinanTrack";
 
   return (
     <>
