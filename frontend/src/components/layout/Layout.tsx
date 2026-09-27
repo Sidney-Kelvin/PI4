@@ -5,6 +5,8 @@ import { useAccessibility } from "../../context/AccessibilityContext";
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
+  "/varejo": "Histórico de Varejo",
+  "/previsao": "Previsão de Vendas (LSTM)",
   "/vendas": "Vendas",
   "/despesas": "Despesas",
   "/estoque": "Estoque",

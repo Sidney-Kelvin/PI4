@@ -5,10 +5,14 @@ import {
   TrendingDown,
   Package,
   Building2,
+  BarChart3,
+  BrainCircuit,
 } from "lucide-react";
 
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/varejo", label: "Histórico de Varejo", icon: BarChart3 },
+  { to: "/previsao", label: "Previsão (LSTM)", icon: BrainCircuit },
   { to: "/vendas", label: "Vendas", icon: ShoppingCart },
   { to: "/despesas", label: "Despesas", icon: TrendingDown },
   { to: "/estoque", label: "Estoque", icon: Package },
